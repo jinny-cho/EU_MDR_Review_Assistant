@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="EU MDR·MDCG 원문 근거 기반 규제 검토 도구 소개">
+<title>EU MDR 규제 검토 어시스턴트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@600;700;900&display=swap">
+<style>
+/* Layout: a regulatory dossier — a narrow clause rail on the left (§ numbers follow the real story order:
+   problem → need → approach → mechanism → results → limits), reading column on the right. */
+:root {
+  --paper: #F4F6F9;          /* cool paper, slight navy bias */
+  --sheet: #FFFFFF;
+  --ink: #18202E;
+  --ink-soft: #4A5568;
+  --rule: #D8DEE8;
+  --navy: #1F4E8C;           /* same primary as the app */
+  --navy-tint: #E6EDF7;
+  --marker: #E9B949;         /* citation highlighter */
+  --marker-tint: rgba(233, 185, 73, .22);
+  --ok: #2E8B62;
+  --warn: #B7791F;
+  --font-display: "Noto Serif KR", "Nanum Myeongjo", "Batang", serif;
+  --font-body: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, "D2Coding", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0F141D; --sheet: #161D29; --ink: #E5EAF2; --ink-soft: #A3AEC0; --rule: #2A3446;
+    --navy: #8FB3EC; --navy-tint: #1C2A40; --marker: #E9B949; --marker-tint: rgba(233, 185, 73, .18);
+    --ok: #5CC395; --warn: #E2A64A; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0F141D; --sheet: #161D29; --ink: #E5EAF2; --ink-soft: #A3AEC0; --rule: #2A3446;
+  --navy: #8FB3EC; --navy-tint: #1C2A40; --marker: #E9B949; --marker-tint: rgba(233, 185, 73, .18);
+  --ok: #5CC395; --warn: #E2A64A; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.75;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+a { color: var(--navy); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
+code, .mono { font-family: var(--font-mono); font-size: .88em; }
+mark { background: linear-gradient(transparent 55%, var(--marker-tint) 55%); color: inherit; padding: 0 .1em; }
+
+/* Hero */
+.hero { padding-block: 56px 40px; border-bottom: 1px solid var(--rule); }
+.doc-id { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .04em; color: var(--ink-soft);
+          display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.doc-id span::before { content: "■ "; color: var(--navy); font-size: 9px; vertical-align: 2px; }
+.hero h1 { font-family: var(--font-display); font-weight: 900; font-size: clamp(34px, 6vw, 60px);
+           line-height: 1.15; letter-spacing: -.02em; margin: 22px 0 14px; text-wrap: balance; }
+.hero .thesis { font-size: clamp(18px, 2.4vw, 22px); color: var(--ink-soft); max-width: 40em; margin: 0; }
+.hero .thesis strong { color: var(--ink); font-weight: 600; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--rule);
+         border: 1px solid var(--rule); margin-top: 36px; }
+.fact { background: var(--sheet); padding: 16px 18px; }
+.fact b { display: block; font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--navy);
+          font-variant-numeric: tabular-nums; line-height: 1.2; }
+.fact small { color: var(--ink-soft); font-size: 13px; line-height: 1.5; display: block; margin-top: 4px; }
+
+/* Sections */
+section.clause { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 32px;
+                 padding-block: 52px; border-bottom: 1px solid var(--rule); }
+.rail { font-family: var(--font-mono); color: var(--navy); font-size: 13px; letter-spacing: .06em;
+        position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; }
+.rail .num { font-family: var(--font-display); font-size: 40px; font-weight: 700; line-height: 1; display: block; letter-spacing: 0; }
+.clause h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(24px, 3.2vw, 32px);
+             line-height: 1.3; margin: 0 0 18px; text-wrap: balance; }
+.clause h3 { font-size: 17px; font-weight: 700; margin: 0 0 6px; }
+.lead { font-size: 18px; max-width: 42em; margin: 0 0 26px; }
+.prose { max-width: 42em; }
+.prose p { margin: 0 0 14px; }
+
+/* Problem list */
+.problems { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; margin: 0; padding: 0; list-style: none; }
+.problems li { border-top: 2px solid var(--ink); padding-top: 12px; }
+.problems li p { margin: 0; color: var(--ink-soft); font-size: 15px; }
+
+/* Requirement rows */
+.reqs { border-top: 1px solid var(--rule); }
+.req { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding-block: 14px; border-bottom: 1px solid var(--rule); }
+.req .rid { font-family: var(--font-mono); font-size: 13px; color: var(--navy); padding-top: 3px; }
+.req p { margin: 0; }
+.req p span { color: var(--ink-soft); font-size: 15px; display: block; }
+
+/* Decisions */
+.decisions { display: grid; gap: 14px; }
+.decision { background: var(--sheet); border: 1px solid var(--rule); padding: 18px 20px; }
+.decision .kicker { font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; color: var(--ink-soft); text-transform: uppercase; }
+.decision h3 { margin-top: 4px; }
+.decision p { margin: 0; color: var(--ink-soft); font-size: 15px; max-width: 46em; }
+.decision .why { margin-top: 8px; font-size: 14.5px; color: var(--ink); }
+.decision .why b { color: var(--navy); }
+
+/* Pipeline */
+.pipeline { display: grid; gap: 28px; }
+.lane h3 { font-family: var(--font-mono); font-size: 13px; letter-spacing: .06em; color: var(--ink-soft); font-weight: 500; text-transform: uppercase; margin-bottom: 10px; }
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; }
+.step { flex: 1 1 150px; min-width: 0; background: var(--sheet); border: 1px solid var(--rule); padding: 14px 14px 16px; position: relative; }
+.step + .step { border-left: none; }
+.step .s-name { font-weight: 700; font-size: 15px; display: block; margin-bottom: 4px; }
+.step .s-desc { font-size: 13.5px; color: var(--ink-soft); line-height: 1.55; display: block; }
+.step .s-tag { font-family: var(--font-mono); font-size: 11.5px; color: var(--navy); background: var(--navy-tint); padding: 1px 6px; display: inline-block; margin-top: 8px; }
+.step.hl { background: var(--navy-tint); }
+.step::after { content: "→"; position: absolute; right: -9px; top: 50%; transform: translateY(-50%); z-index: 1;
+               background: var(--paper); color: var(--navy); font-size: 14px; line-height: 1; padding: 2px 0; }
+.step:last-child::after { content: none; }
+
+/* Prompt sample */
+.sample { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 8px; }
+.card { background: var(--sheet); border: 1px solid var(--rule); padding: 16px 18px; min-width: 0; }
+.card .label { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); letter-spacing: .05em; text-transform: uppercase; display: block; margin-bottom: 8px; }
+.excerpt { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; color: var(--ink); }
+.answer p { margin: 0 0 8px; font-size: 15px; }
+.cite { font-family: var(--font-mono); font-size: 12px; color: var(--navy); background: var(--navy-tint); padding: 0 4px; }
+
+/* Results table */
+.table-scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
+th { font-family: var(--font-mono); font-weight: 500; font-size: 12px; letter-spacing: .05em; color: var(--ink-soft); text-transform: uppercase; }
+tr:last-child td { border-bottom: none; }
+td.num { text-align: right; }
+tr.chosen td { background: var(--marker-tint); font-weight: 600; }
+.bar { display: inline-block; height: 8px; background: var(--navy); vertical-align: middle; margin-right: 8px; }
+.note { font-size: 13.5px; color: var(--ink-soft); margin-top: 10px; }
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+.metric { border-left: 3px solid var(--navy); padding: 4px 0 4px 14px; }
+.metric b { font-family: var(--font-display); font-size: 24px; display: block; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.metric span { font-size: 13.5px; color: var(--ink-soft); }
+
+/* Limits */
+.limits { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; max-width: 46em; }
+.limits li { padding-left: 22px; position: relative; }
+.limits li::before { content: "!"; position: absolute; left: 0; top: 1px; font-family: var(--font-mono); font-weight: 500; color: var(--warn); }
+
+/* Query animation */
+.viz { background: var(--sheet); border: 1px solid var(--rule); margin-top: 30px; }
+.viz-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+            padding: 14px 18px; border-bottom: 1px solid var(--rule); }
+.viz-head h3 { margin: 0; font-size: 16px; }
+.viz-head small { color: var(--ink-soft); font-size: 12.5px; }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.controls button { font: inherit; font-size: 13.5px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink);
+                   padding: 6px 12px; cursor: pointer; }
+.controls button:hover { border-color: var(--navy); }
+.controls button.primary { background: var(--navy); color: var(--sheet); border-color: var(--navy); font-weight: 600; }
+.steps { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 18px; border-bottom: 1px solid var(--rule); }
+.steps button { font: inherit; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--rule); background: transparent;
+                color: var(--ink-soft); padding: 3px 8px; cursor: pointer; }
+.steps button[aria-current="step"] { background: var(--navy); border-color: var(--navy); color: var(--sheet); }
+.steps button.done { color: var(--navy); border-color: var(--navy); }
+.caption { padding: 14px 18px; border-bottom: 1px solid var(--rule); min-height: 92px; }
+.caption b { display: block; font-size: 16px; margin-bottom: 2px; }
+.caption p { margin: 0; color: var(--ink-soft); font-size: 14.5px; max-width: 52em; }
+.stage-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr); gap: 1px; background: var(--rule); }
+.stage-grid > div { background: var(--sheet); padding: 16px 18px; min-width: 0; }
+.panel-label { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); display: block; margin-bottom: 8px; }
+.fade { opacity: .14; transition: opacity .5s ease, transform .5s ease; }
+.fade.on { opacity: 1; }
+.qbox { border: 1px solid var(--navy); background: var(--navy-tint); padding: 10px 12px; font-size: 15px; min-height: 48px; }
+.qbox .caret { display: inline-block; width: 1px; height: 1em; background: var(--navy); vertical-align: -2px; margin-left: 1px; }
+.idchecks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.idchip { font-family: var(--font-mono); font-size: 12px; border: 1px dashed var(--rule); padding: 2px 8px; color: var(--ink-soft); }
+.idchip s { text-decoration-color: var(--warn); }
+.idnote { font-size: 13px; color: var(--ink-soft); margin: 8px 0 0; }
+.vec { margin-top: 16px; }
+.vec .prefix { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
+.bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; margin-top: 6px; border-bottom: 1px solid var(--rule); }
+.bars span { flex: 1 1 0; background: var(--navy); height: 4%; transition: height .5s ease; }
+.vec .dims { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); margin-top: 4px; }
+.space svg { width: 100%; height: auto; display: block; }
+.space .pt { transition: opacity .4s ease, r .4s ease; }
+.space .law { fill: var(--navy); }
+.space .guide { fill: var(--marker); }
+.space .dim { opacity: .28; }
+.space .link { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 240; stroke-dashoffset: 240; transition: stroke-dashoffset .8s ease; opacity: .55; }
+.space .link.on { stroke-dashoffset: 0; }
+.space .rank { font-family: var(--font-mono); font-size: 11px; fill: var(--ink); opacity: 0; transition: opacity .4s ease; }
+.space .rank.on { opacity: 1; }
+.space .qpt { fill: var(--sheet); stroke: var(--ink); stroke-width: 2.5; opacity: 0; transition: opacity .4s ease; }
+.space .qpt.on { opacity: 1; }
+.space .qlabel { font-family: var(--font-mono); font-size: 11px; fill: var(--ink); opacity: 0; transition: opacity .4s ease; }
+.space .qlabel.on { opacity: 1; }
+.space .legend { font-size: 11.5px; fill: var(--ink-soft); font-family: var(--font-body); }
+.flowrow { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 1px; background: var(--rule); border-top: 1px solid var(--rule); }
+.flowrow > div { background: var(--sheet); padding: 16px 18px; min-width: 0; }
+.srcs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.srcs li { display: grid; grid-template-columns: 18px 24px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; font-size: 13.5px;
+           opacity: .14; transform: translateX(-6px); transition: opacity .45s ease, transform .45s ease; }
+.srcs li.on { opacity: 1; transform: none; }
+.srcs li.off { opacity: .35; }
+.srcs li.off .t { text-decoration: line-through; }
+.srcs .box { width: 14px; height: 14px; border: 1.5px solid var(--navy); display: inline-block; position: relative; top: 2px; }
+.srcs li.on:not(.off) .box::after { content: ""; position: absolute; left: 3px; top: 0; width: 4px; height: 8px; border: solid var(--navy); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.srcs .n { font-family: var(--font-mono); font-size: 12px; color: var(--navy); }
+.srcs .t { min-width: 0; overflow-wrap: anywhere; }
+.srcs .tag { font-size: 11px; padding: 0 5px; margin-right: 4px; font-weight: 600; }
+.srcs .tag.l { background: var(--navy-tint); color: var(--navy); }
+.srcs .tag.g { background: var(--marker-tint); color: var(--warn); }
+.srcs .sim { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.prompt { font-family: var(--font-mono); font-size: 12px; line-height: 1.6; background: var(--paper); border: 1px solid var(--rule); padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.prompt .hl { color: var(--navy); font-weight: 500; }
+.modelbox { margin-top: 10px; font-size: 13px; color: var(--ink-soft); }
+.modelbox b { color: var(--ink); }
+.ans p { margin: 0 0 8px; font-size: 14px; }
+.saved { margin-top: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--ok); border-top: 1px dashed var(--rule); padding-top: 8px; overflow-wrap: anywhere; }
+.viz-note { font-size: 12.5px; color: var(--ink-soft); padding: 10px 18px; border-top: 1px solid var(--rule); margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .fade, .bars span, .space .pt, .space .link, .space .rank, .space .qpt, .space .qlabel, .srcs li { transition: none; }
+}
+
+footer { padding-block: 32px 0; font-size: 14px; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+footer .mono { font-size: 13px; }
+
+@media (max-width: 760px) {
+  section.clause { grid-template-columns: minmax(0, 1fr); gap: 10px; padding-block: 40px; }
+  .rail { position: static; display: flex; align-items: baseline; gap: 10px; }
+  .rail .num { font-size: 28px; display: inline; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .problems, .sample, .metrics, .stage-grid, .flowrow { grid-template-columns: minmax(0, 1fr); }
+  .flow { flex-direction: column; }
+  .step + .step { border-left: 1px solid var(--rule); border-top: none; }
+  .step::after { content: "↓"; right: auto; left: 16px; top: auto; bottom: -11px; transform: none; padding: 0 4px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero h1, .hero .thesis { animation: rise .6s ease-out both; }
+  .hero .thesis { animation-delay: .08s; }
+  @keyframes rise { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="doc-id">
+      <span>Regulation (EU) 2017/745</span>
+      <span>CELEX 02017R0745-20261109</span>
+      <span>MDCG guidance 17종</span>
+    </div>
+    <h1>EU MDR 규제 검토 어시스턴트</h1>
+    <p class="thesis">한국어로 묻고, <strong>EU MDR 원문과 MDCG 가이던스를 근거로</strong> 답합니다.
+      RA 실무자가 조항을 찾고, 해석을 검토하고, 그 결과를 조직의 기록으로 남기는 로컬 검토 도구입니다.</p>
+    <div class="facts">
+      <div class="fact"><b>545</b><small>EU MDR 통합본 섹션<br>(Article 1–123, Annex I–XVII)</small></div>
+      <div class="fact"><b>1,813</b><small>법령 + 가이던스<br>검색 단위(청크)</small></div>
+      <div class="fact"><b>93%</b><small>한국어 질문 30개 기준<br>정답 근거 상위 6건 포함률</small></div>
+      <div class="fact"><b>0 토큰</b><small>최신 문서 점검에<br>쓰는 AI 비용</small></div>
+    </div>
+  </header>
+
+  <section class="clause" id="problem">
+    <div class="rail"><span class="num">§1</span>문제</div>
+    <div>
+      <h2>규제 질문 하나에 답하려면 문서 여러 개를 동시에 펼쳐야 했습니다</h2>
+      <p class="lead">의료기기를 유럽에 출시하려면 EU MDR(2017/745)을 지켜야 합니다. 그런데 법령과 그 해석은 서로 다른 곳에, 서로 다른 언어로, 계속 바뀌며 흩어져 있습니다.</p>
+      <ul class="problems">
+        <li><h3>근거가 흩어져 있다</h3><p>법적 구속력이 있는 조항은 MDR 본문 123개 Article과 17개 Annex에, 실무 해석은 수십 개의 MDCG 가이던스에 나뉘어 있습니다. "X-ray 장비는 몇 등급인가" 같은 질문도 Annex VIII 분류 규칙과 MDCG 2021-24를 함께 봐야 답할 수 있습니다.</p></li>
+        <li><h3>원문은 영어, 업무는 한국어</h3><p>실무자는 한국어로 생각하고 보고하지만 근거는 모두 영어입니다. 검색어를 영어로 바꾸고, 찾은 조항을 다시 한국어로 정리하는 일이 반복됩니다.</p></li>
+        <li><h3>지금 보는 문서가 최신인지 모른다</h3><p>MDR은 개정될 때마다 새 통합본(consolidated version)이 나오고, MDCG 문서도 개정판이 수시로 올라옵니다. 개정 여부를 사람이 매번 확인해야 합니다.</p></li>
+        <li><h3>범용 AI는 근거를 보여주지 않는다</h3><p>채팅형 AI에 물으면 그럴듯한 답이 나오지만, 어느 조항에 근거했는지 확인할 수 없습니다. 규제 판단에서 출처 없는 답은 쓸 수 없습니다.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="clause" id="need">
+    <div class="rail"><span class="num">§2</span>요구사항</div>
+    <div>
+      <h2>필요한 것은 답을 대신 내리는 AI가 아니라, 근거를 빠르게 찾아주는 조수였습니다</h2>
+      <p class="lead">최종 판단은 사람이 합니다. 도구는 그 판단에 필요한 원문을 정확히 찾아 나란히 보여주고, 그 범위 안에서만 해석을 돕도록 정했습니다.</p>
+      <div class="reqs">
+        <div class="req"><span class="rid">R1</span><p>한국어 질문으로 영어 원문을 찾는다<span>법령과 가이던스를 한 번에 교차 검색</span></p></div>
+        <div class="req"><span class="rid">R2–R4</span><p>답변은 검색된 원문 범위 안에서만, 출처 번호와 함께<span>구속력 있는 MDR 조항과 해석 기준인 MDCG를 구분해 인용하고, 원문을 옆에 그대로 보여준다</span></p></div>
+        <div class="req"><span class="rid">R6</span><p>속도나 비용보다 정확도<span>성능을 낮춘 경량(lite·mini) 모델로는 절대 대체하지 않는다</span></p></div>
+        <div class="req"><span class="rid">R8</span><p>항상 최신 공식 문서 기준<span>시작할 때 개정 여부를 점검하고, 한 번의 클릭으로 갱신한다</span></p></div>
+        <div class="req"><span class="rid">R15</span><p>아무것도 없는 PC에서도 바로 동작<span>실행 파일 하나로 환경 설치부터 데이터 구축까지</span></p></div>
+        <div class="req"><span class="rid">R19</span><p>회사 계정으로도 쓸 수 있어야 한다<span>Enterprise 계약상 API 키를 쓸 수 없는 경우를 위해 계정 로그인 방식 지원</span></p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="clause" id="approach">
+    <div class="rail"><span class="num">§3</span>접근</div>
+    <div>
+      <h2>공식 원문을 로컬에 색인하고, AI는 찾아온 근거만 읽게 했습니다</h2>
+      <p class="lead">이런 방식을 RAG(Retrieval-Augmented Generation, 검색 증강 생성)라고 부릅니다. AI가 기억에 의존해 답하는 대신, 먼저 검색한 원문 발췌를 읽고 그 안에서만 답하게 만드는 구조입니다. 그 위에 아래의 설계 결정을 더했습니다.</p>
+      <div class="decisions">
+        <div class="decision">
+          <span class="kicker">출처</span>
+          <h3>EU 출판국의 공식 저장소(Cellar)에서 직접 받는다</h3>
+          <p>EUR-Lex 웹사이트는 자동 접근을 차단합니다. 그래서 같은 법령 데이터를 공식 API로 제공하는 EU 출판국 저장소에서 최신 통합본 번호를 조회하고 본문을 받습니다. MDCG 문서는 유럽연합 집행위원회 가이던스 페이지에서 받습니다.</p>
+          <p class="why"><b>원칙:</b> 확인에 실패하면 "최신이 아님"이 아니라 "확인 불가"로 표시하고, 기존 데이터는 절대 지우지 않습니다.</p>
+        </div>
+        <div class="decision">
+          <span class="kicker">검색 정확도</span>
+          <h3>검색 모델과 문서 분할 크기를 직접 측정해서 골랐다</h3>
+          <p>한국어 실무 질문 30개와 각 질문의 정답 조항을 만들어 후보 모델을 비교했습니다. 처음 쓰던 경량 다국어 모델은 문서의 앞부분 128토큰만 읽어서, 긴 조항 중간에 있는 규칙(예: Annex VIII Rule 19)을 50위 밖으로 놓쳤습니다.</p>
+          <p class="why"><b>결과:</b> 다국어 E5-large 모델과 약 1,000자 단위 분할로 바꾸어 정답 포함률을 70%에서 93%로 올렸습니다.</p>
+        </div>
+        <div class="decision">
+          <span class="kicker">조항 번호 직접 조회</span>
+          <h3>"Rule 19", "제10조", "MDCG 2019-11"이라고 쓰면 그 원문을 바로 찾는다</h3>
+          <p>질문에 조항이나 문서 번호가 있으면 의미 검색 전에 해당 원문을 정확히 조회해 맨 위에 고정합니다. 로컬 데이터베이스 조회라 AI 비용이 들지 않습니다.</p>
+        </div>
+        <div class="decision">
+          <span class="kicker">사람의 검토</span>
+          <h3>근거를 먼저 보고, 쓸 근거만 골라서 AI에게 검토를 맡긴다</h3>
+          <p>검색된 근거마다 체크박스가 있어 관련 없는 발췌를 빼고 검토를 요청할 수 있습니다. AI는 발췌문 번호로 인용하고, 원문에서 확인되지 않는 내용은 "확인되지 않음"이라고 밝히도록 지시받습니다.</p>
+        </div>
+        <div class="decision">
+          <span class="kicker">기록</span>
+          <h3>성공한 검토는 자동 저장, 배포용 문서는 직접 내보내기</h3>
+          <p>모든 AI 검토 결과는 질문, 답변, 사용한 근거, 모델, 법령 기준일과 함께 자동으로 저장됩니다. 팀에 공유할 결과만 Markdown과 Word로 내보내 따로 보관합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="clause" id="mechanism">
+    <div class="rail"><span class="num">§4</span>동작 원리</div>
+    <div>
+      <h2>두 개의 흐름이 있습니다: 문서를 준비하는 흐름과 질문에 답하는 흐름</h2>
+      <div class="pipeline">
+        <div class="lane">
+          <h3>A. 문서 준비 — 시작할 때 점검, 필요할 때 원클릭 갱신</h3>
+          <div class="flow">
+            <div class="step"><span class="s-name">최신 여부 점검</span><span class="s-desc">EU 출판국과 집행위원회 페이지를 조회해 새 통합본·개정판·신규 MDCG를 확인</span><span class="s-tag">HTTP 2회 · 약 10초</span></div>
+            <div class="step"><span class="s-name">수집</span><span class="s-desc">MDR 본문(XHTML)과 가이던스 PDF를 받고, PDF인지 검증</span><span class="s-tag">공식 출처만</span></div>
+            <div class="step"><span class="s-name">구조 분할</span><span class="s-desc">Recital·Article·Annex 경계로 나누고 약 1,000자 단위로 정리</span><span class="s-tag">545 + 1,268</span></div>
+            <div class="step"><span class="s-name">벡터화</span><span class="s-desc">각 조각의 의미를 숫자 벡터로 바꿈 (로컬 CPU에서 실행)</span><span class="s-tag">E5-large</span></div>
+            <div class="step hl"><span class="s-name">검증 후 교체</span><span class="s-desc">임시 저장소에 먼저 만들고, 검사를 통과해야 기존 DB와 교체</span><span class="s-tag">실패 시 기존 유지</span></div>
+          </div>
+        </div>
+        <div class="lane">
+          <h3>B. 질문에 답하기</h3>
+          <div class="flow">
+            <div class="step"><span class="s-name">한국어 질문</span><span class="s-desc">"나노물질을 포함한 기기는 몇 등급인가요?"</span></div>
+            <div class="step"><span class="s-name">근거 검색</span><span class="s-desc">조항 번호 직접 조회 + 의미가 가까운 원문 검색</span><span class="s-tag">약 0.04초</span></div>
+            <div class="step"><span class="s-name">사람이 선별</span><span class="s-desc">근거를 확인하고 쓸 것만 체크</span></div>
+            <div class="step"><span class="s-name">AI 검토</span><span class="s-desc">번호 붙은 발췌문만 읽고, 번호로 인용하며 답함</span><span class="s-tag">경량 모델 금지</span></div>
+            <div class="step hl"><span class="s-name">자동 저장</span><span class="s-desc">질문·답변·근거·모델·기준일을 기록</span><span class="s-tag">results/saved</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="viz" id="viz" aria-label="질문이 들어왔을 때 검색과 검토가 진행되는 과정">
+        <div class="viz-head">
+          <div>
+            <h3>질문 하나가 처리되는 과정</h3>
+            <small>단계를 눌러 하나씩 보거나, 처음부터 재생하세요.</small>
+          </div>
+          <div class="controls">
+            <button type="button" id="vz-prev" aria-label="이전 단계">이전</button>
+            <button type="button" id="vz-play" class="primary">처음부터 재생</button>
+            <button type="button" id="vz-next" aria-label="다음 단계">다음</button>
+          </div>
+        </div>
+        <div class="steps" id="vz-steps" role="group" aria-label="단계 선택"></div>
+        <div class="caption" aria-live="polite"><b id="vz-title"></b><p id="vz-desc"></p></div>
+
+        <div class="stage-grid">
+          <div>
+            <span class="panel-label">① 질문</span>
+            <div class="qbox fade" data-from="0"><span id="vz-q"></span><span class="caret" id="vz-caret" hidden></span></div>
+            <div class="fade" data-from="1">
+              <div class="idchecks">
+                <span class="idchip"><s>Rule N</s></span>
+                <span class="idchip"><s>Article N · 제N조</s></span>
+                <span class="idchip"><s>Annex X</s></span>
+                <span class="idchip"><s>MDCG YYYY-N</s></span>
+              </div>
+              <p class="idnote">조항 번호 없음 → 의미 검색</p>
+            </div>
+            <div class="vec fade" data-from="2">
+              <span class="prefix">query: 나노물질을 포함한 의료기기는…</span>
+              <div class="bars" id="vz-bars" aria-hidden="true"></div>
+              <div class="dims">E5-large → 1,024차원 벡터 (그중 32개 표시)</div>
+            </div>
+          </div>
+          <div class="space">
+            <span class="panel-label">② 벡터 공간 (DB에 저장된 문서 1,813개 중 일부)</span>
+            <svg viewBox="0 0 520 290" role="img" aria-label="문서 벡터 점들 사이에 질문 벡터가 놓이고, 가장 가까운 6개 문서와 선으로 연결됨">
+              <g id="vz-pts"></g>
+              <g id="vz-links"></g>
+              <circle class="qpt" id="vz-qpt" cx="352" cy="132" r="8"></circle>
+              <text class="qlabel" id="vz-qlabel" x="366" y="122">질문</text>
+              <g class="legend" transform="translate(12 276)">
+                <circle cx="5" cy="-4" r="5" class="law"></circle><text x="15" y="0">EU MDR 법령</text>
+                <circle cx="111" cy="-4" r="5" class="guide"></circle><text x="121" y="0">MDCG 가이던스</text>
+                <circle cx="237" cy="-4" r="5" fill="none" stroke="currentColor" style="color: var(--ink)" stroke-width="2"></circle><text x="247" y="0">질문</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <div class="flowrow">
+          <div>
+            <span class="panel-label">③ 근거 목록 · 사람이 선별</span>
+            <ol class="srcs" id="vz-srcs">
+              <li data-from="4"><span class="box"></span><span class="n">[1]</span><span class="t"><span class="tag l">법령</span>Annex VIII · Rule 19</span><span class="sim">0.874</span></li>
+              <li data-from="4"><span class="box"></span><span class="n">[2]</span><span class="t"><span class="tag g">가이던스</span>MDCG 2021-24 · p.55</span><span class="sim">0.861</span></li>
+              <li data-from="4"><span class="box"></span><span class="n">[3]</span><span class="t"><span class="tag g">가이던스</span>MDCG 2021-24 · p.16</span><span class="sim">0.842</span></li>
+              <li data-from="4"><span class="box"></span><span class="n">[4]</span><span class="t"><span class="tag l">법령</span>Article 2 · 정의 (nanomaterial)</span><span class="sim">0.831</span></li>
+              <li data-from="4" data-off="5"><span class="box"></span><span class="n">[5]</span><span class="t"><span class="tag g">가이던스</span>Borderline Manual · p.21</span><span class="sim">0.812</span></li>
+              <li data-from="4"><span class="box"></span><span class="n">[6]</span><span class="t"><span class="tag l">법령</span>Annex I · GSPR 10.6</span><span class="sim">0.806</span></li>
+            </ol>
+          </div>
+          <div class="fade" data-from="6">
+            <span class="panel-label">④ AI에게 가는 프롬프트</span>
+            <pre class="prompt"><span class="hl">[규칙]</span> 발췌문 안에서만 답할 것
+번호로 인용할 것 · 법령/가이던스 구분
+확인되지 않으면 그렇다고 밝힐 것
+
+<span class="hl">[1]</span> ANNEX VIII … Rule 19 …
+<span class="hl">[2]</span> MDCG 2021-24 p.55 …
+<span class="hl">[3] [4] [6]</span> …
+
+<span class="hl">[질문]</span> 나노물질을 포함한…</pre>
+            <div class="modelbox">응답 모델 <b>gemini-3-flash-preview</b> · 경량 모델 금지</div>
+          </div>
+          <div class="fade ans" data-from="7">
+            <span class="panel-label">⑤ 검토 의견 · 자동 저장</span>
+            <p>체내 노출 가능성이 높거나 중간이면 Class III, 낮으면 Class IIb, 무시할 수준이면 Class IIa <span class="cite">[1]</span>.</p>
+            <p>제품 예시는 MDCG 2021-24 참고 <span class="cite">[2]</span>.</p>
+            <div class="saved">✓ 자동 저장됨 · results/saved/20261118_053438_….md</div>
+          </div>
+        </div>
+        <p class="viz-note">근거 제목과 유사도 값, 점의 위치는 설명을 위해 단순화한 예시입니다. 실제 벡터는 1,024차원이며 화면에는 2차원으로 표현했습니다.</p>
+      </div>
+
+      <div class="sample">
+        <div class="card">
+          <span class="label">AI가 받는 근거 [1] — EU MDR Annex VIII</span>
+          <pre class="excerpt">7.6. Rule 19
+All devices incorporating or consisting of
+nanomaterial are classified as:
+— class III if they present a high or medium
+  potential for internal exposure;
+— class IIb if they present a low potential
+  for internal exposure; and
+— class IIa if they present a negligible
+  potential for internal exposure.</pre>
+        </div>
+        <div class="card answer">
+          <span class="label">AI의 검토 의견 (형식 예시)</span>
+          <p>나노물질을 포함하거나 나노물질로 구성된 기기는 <mark>체내 노출 가능성(potential for internal exposure)</mark>에 따라 등급이 정해집니다 <span class="cite">[1]</span>.</p>
+          <p>노출 가능성이 높거나 중간이면 Class III, 낮으면 Class IIb, 무시할 수준이면 Class IIa입니다 <span class="cite">[1]</span>.</p>
+          <p>노출 가능성을 평가하는 방법은 제공된 원문에서 확인되지 않습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="clause" id="results">
+    <div class="rail"><span class="num">§5</span>결과</div>
+    <div>
+      <h2>측정으로 고른 설계, 측정으로 확인한 결과</h2>
+      <p class="lead">검색 모델은 감으로 고르지 않았습니다. 같은 30개 질문으로 후보를 비교하고, 실제 서비스 경로에서 다시 측정했습니다.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>검색 모델</th><th>분할 단위</th><th class="num">정답 상위 6건 포함률</th><th class="num">모델 크기</th></tr></thead>
+          <tbody>
+            <tr><td>MiniLM (처음 사용)</td><td>2,500자</td><td class="num"><span class="bar" style="width:70px"></span>70%</td><td class="num">470MB</td></tr>
+            <tr><td>multilingual-E5-base</td><td>1,000자</td><td class="num"><span class="bar" style="width:83px"></span>83%</td><td class="num">1.1GB</td></tr>
+            <tr class="chosen"><td>multilingual-E5-large (채택)</td><td>1,000자</td><td class="num"><span class="bar" style="width:93px"></span>93%</td><td class="num">2.2GB</td></tr>
+            <tr><td>BGE-M3</td><td>1,000자</td><td class="num"><span class="bar" style="width:93px"></span>93%</td><td class="num">2.3GB</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">E5-large와 BGE-M3가 같은 포함률을 보였고, 정답 순위 지표(MRR 0.843)에서 근소하게 앞선 E5-large를 채택했습니다.</p>
+      <div class="metrics">
+        <div class="metric"><b>593,622자 → 1,800자 이하</b><span>원문 파싱 오류로 첫 조각에 법령 전체가 들어가던 문제를 고친 뒤 최대 조각 크기</span></div>
+        <div class="metric"><b>약 1분</b><span>빈 폴더에서 법령과 가이던스 17종을 받아 DB를 만드는 시간 (검색 모델 다운로드 제외)</span></div>
+        <div class="metric"><b>27–33초</b><span>회사 계정(Gemini CLI)으로 연결 테스트와 실제 검토를 마치는 데 걸린 시간</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="clause" id="limits">
+    <div class="rail"><span class="num">§6</span>한계</div>
+    <div>
+      <h2>이 도구가 하지 않는 것</h2>
+      <ul class="limits">
+        <li>규제 판단을 대신하지 않습니다. 답변은 검토 초안이며, 최종 판단과 책임은 사용자에게 있습니다.</li>
+        <li>검색한 범위 밖의 내용은 알지 못합니다. 시행규정, 정합 표준(harmonised standards) 목록 등은 아직 기본 수집 대상이 아닙니다. 사내 문서는 PDF로 추가할 수 있습니다.</li>
+        <li>IVDR(2017/746)은 다루지 않습니다.</li>
+        <li>회사 계정의 Gemini CLI 방식은 호출마다 약 9천 토큰의 자체 지침이 더해지고 30초 안팎이 걸립니다. Vertex AI 방식은 실제 회사 프로젝트에서 아직 검증하지 않았습니다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <span>EU MDR 규제 검토 어시스턴트 · MIT License</span>
+    <span class="mono"><a href="https://github.com/jinny-cho/EU_MDR_Review_Assistant">github.com/jinny-cho/EU_MDR_Review_Assistant</a></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var STEPS = [
+    { t: "질문이 들어옵니다", d: "사용자가 한국어로 질문합니다. 이 예시에는 조항 번호가 없습니다." },
+    { t: "조항 번호부터 확인합니다", d: "질문에 'Rule 19', 'Article 10', '제10조', 'MDCG 2019-11' 같은 식별자가 있으면 그 원문을 DB에서 정확히 꺼내 맨 위에 고정합니다. 이 질문에는 없으므로 의미 검색으로 넘어갑니다." },
+    { t: "질문을 벡터(숫자 1,024개)로 바꿉니다", d: "E5-large 모델이 질문 앞에 'query:'를 붙여 의미를 숫자 벡터로 바꿉니다. 문서 1,813개는 DB를 만들 때 같은 방식('passage:')으로 이미 벡터가 되어 저장되어 있습니다. 이 계산은 PC 안에서만 이루어집니다." },
+    { t: "벡터 공간에서 가장 가까운 문서를 찾습니다", d: "DB(ChromaDB)가 질문 벡터와 문서 벡터의 방향이 얼마나 비슷한지(코사인 유사도)를 비교해 가장 가까운 6건을 고릅니다. 의미가 비슷하면 언어가 달라도 가까이 놓이므로, 한국어 질문으로 영어 원문을 찾을 수 있습니다. 약 0.04초가 걸립니다." },
+    { t: "근거 6건이 유사도 순으로 표시됩니다", d: "법령과 가이던스가 함께 나옵니다. 사용자는 각 원문을 펼쳐 직접 읽고 확인할 수 있습니다." },
+    { t: "사람이 근거를 고릅니다", d: "질문과 관련이 약한 [5]의 체크를 해제합니다. 체크한 근거만 AI에게 전달됩니다." },
+    { t: "번호를 붙여 AI에게 검토를 요청합니다", d: "남은 근거에 화면과 같은 번호를 붙여 프롬프트를 만들고, '발췌문 안에서만 답하라, 번호로 인용하라, 확인되지 않으면 밝혀라'는 규칙을 함께 보냅니다. AI에게 가는 것은 이 프롬프트뿐입니다." },
+    { t: "인용이 달린 답변이 오고, 자동으로 저장됩니다", d: "AI는 [1], [2] 같은 번호로 근거를 인용해 답합니다. 검토가 성공하면 질문, 답변, 사용한 근거, 모델, 법령 기준일이 results/saved 폴더에 기록됩니다." }
+  ];
+  var QUESTION = "나노물질을 포함한 의료기기는 몇 등급으로 분류되나요?";
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var $ = function (id) { return document.getElementById(id); };
+
+  // --- seeded random so the picture is identical on every load ---
+  var seed = 7;
+  function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+
+  // --- vector-space points ---
+  var Q = { x: 352, y: 132 };
+  var near = [ // rank order: distance grows, types match the source list
+    { dx: 22, dy: 14, type: "law" }, { dx: -26, dy: 18, type: "guide" }, { dx: 34, dy: -24, type: "guide" },
+    { dx: -36, dy: -22, type: "law" }, { dx: 8, dy: 46, type: "guide" }, { dx: 48, dy: 30, type: "law" }
+  ];
+  var ptsG = $("vz-pts"), linksG = $("vz-links");
+  var others = [];
+  var clusters = [{ x: 140, y: 110, type: "law", n: 30 }, { x: 250, y: 205, type: "guide", n: 24 }, { x: 430, y: 220, type: "law", n: 10 }];
+  clusters.forEach(function (c) {
+    for (var i = 0; i < c.n; i++) {
+      var a = rnd() * Math.PI * 2, r = 12 + rnd() * 70;
+      var x = c.x + Math.cos(a) * r * 1.3, y = c.y + Math.sin(a) * r;
+      if (Math.hypot(x - Q.x, y - Q.y) < 70 || x < 10 || x > 510 || y < 12 || y > 255) continue;
+      others.push({ x: x, y: y, type: c.type });
+    }
+  });
+  function dot(p, cls) {
+    var el = document.createElementNS(SVGNS, "circle");
+    el.setAttribute("cx", p.x.toFixed(1)); el.setAttribute("cy", p.y.toFixed(1)); el.setAttribute("r", 4.5);
+    el.setAttribute("class", "pt " + (p.type === "law" ? "law" : "guide") + (cls ? " " + cls : ""));
+    ptsG.appendChild(el); return el;
+  }
+  var otherEls = others.map(function (p) { return dot(p, "other"); });
+  var nearEls = [], linkEls = [], rankEls = [];
+  near.forEach(function (n, i) {
+    var p = { x: Q.x + n.dx, y: Q.y + n.dy, type: n.type };
+    nearEls.push(dot(p, "near"));
+    var ln = document.createElementNS(SVGNS, "line");
+    ln.setAttribute("x1", Q.x); ln.setAttribute("y1", Q.y); ln.setAttribute("x2", p.x); ln.setAttribute("y2", p.y);
+    ln.setAttribute("class", "link"); ln.style.transitionDelay = (reduce ? 0 : i * 0.12) + "s";
+    linksG.appendChild(ln); linkEls.push(ln);
+    var tx = document.createElementNS(SVGNS, "text");
+    tx.setAttribute("x", (p.x + (n.dx >= 0 ? 7 : -16)).toFixed(1)); tx.setAttribute("y", (p.y + (n.dy >= 0 ? 13 : -6)).toFixed(1));
+    tx.setAttribute("class", "rank"); tx.textContent = String(i + 1); tx.style.transitionDelay = (reduce ? 0 : 0.3 + i * 0.12) + "s";
+    linksG.appendChild(tx); rankEls.push(tx);
+  });
+
+  // --- embedding bars ---
+  var barsEl = $("vz-bars"), bars = [];
+  for (var b = 0; b < 32; b++) { var s = document.createElement("span"); s.dataset.h = String(14 + Math.round(rnd() * 84)); barsEl.appendChild(s); bars.push(s); }
+
+  // --- step chips ---
+  var stepsEl = $("vz-steps"), chipEls = [];
+  STEPS.forEach(function (st, i) {
+    var bt = document.createElement("button"); bt.type = "button"; bt.textContent = String(i + 1);
+    bt.setAttribute("aria-label", (i + 1) + "단계: " + st.t);
+    bt.addEventListener("click", function () { stop(); render(i, true); });
+    stepsEl.appendChild(bt); chipEls.push(bt);
+  });
+
+  var fades = Array.prototype.slice.call(document.querySelectorAll("#viz .fade[data-from]"));
+  var srcEls = Array.prototype.slice.call(document.querySelectorAll("#vz-srcs li"));
+  var cur = STEPS.length - 1, timer = null, typer = null;
+
+  function typeQuestion(animate) {
+    clearInterval(typer);
+    var q = $("vz-q"), caret = $("vz-caret");
+    if (!animate || reduce) { q.textContent = QUESTION; caret.hidden = true; return; }
+    q.textContent = ""; caret.hidden = false; var k = 0;
+    typer = setInterval(function () {
+      k++; q.textContent = QUESTION.slice(0, k);
+      if (k >= QUESTION.length) { clearInterval(typer); caret.hidden = true; }
+    }, 55);
+  }
+
+  function render(i, animate) {
+    cur = i;
+    $("vz-title").textContent = (i + 1) + ". " + STEPS[i].t;
+    $("vz-desc").textContent = STEPS[i].d;
+    chipEls.forEach(function (c, j) {
+      if (j === i) c.setAttribute("aria-current", "step"); else c.removeAttribute("aria-current");
+      c.classList.toggle("done", j < i);
+    });
+    fades.forEach(function (f) { f.classList.toggle("on", i >= Number(f.dataset.from)); });
+    if (i === 0) typeQuestion(animate); else typeQuestion(false);
+    bars.forEach(function (s) { s.style.height = (i >= 2 ? s.dataset.h : 4) + "%"; });
+    var searched = i >= 3;
+    $("vz-qpt").classList.toggle("on", i >= 2);
+    $("vz-qlabel").classList.toggle("on", i >= 2);
+    otherEls.forEach(function (e) { e.classList.toggle("dim", searched); });
+    linkEls.forEach(function (e) { e.classList.toggle("on", searched); });
+    rankEls.forEach(function (e) { e.classList.toggle("on", searched); });
+    nearEls.forEach(function (e) { e.setAttribute("r", searched ? 6.5 : 4.5); });
+    srcEls.forEach(function (li, j) {
+      li.style.transitionDelay = (animate && !reduce && i === 4 ? j * 0.12 : 0) + "s";
+      li.classList.toggle("on", i >= Number(li.dataset.from));
+      li.classList.toggle("off", li.dataset.off !== undefined && i >= Number(li.dataset.off));
+    });
+    $("vz-prev").disabled = i === 0;
+    $("vz-next").disabled = i === STEPS.length - 1;
+  }
+
+  var playBtn = $("vz-play");
+  function stop() { clearInterval(timer); timer = null; playBtn.textContent = cur === STEPS.length - 1 ? "처음부터 재생" : "재생"; }
+  function play() {
+    if (cur === STEPS.length - 1) render(0, true);
+    playBtn.textContent = "일시정지";
+    timer = setInterval(function () {
+      if (cur >= STEPS.length - 1) { stop(); return; }
+      render(cur + 1, true);
+      if (cur === STEPS.length - 1) stop();
+    }, cur === 0 ? 3600 : 3400);
+  }
+  playBtn.addEventListener("click", function () { if (timer) stop(); else play(); });
+  $("vz-prev").addEventListener("click", function () { stop(); if (cur > 0) render(cur - 1, true); });
+  $("vz-next").addEventListener("click", function () { stop(); if (cur < STEPS.length - 1) render(cur + 1, true); });
+
+  render(STEPS.length - 1, false); // complete state at rest
+  stop();
+})();
+</script>
+
+</body>
+</html>
