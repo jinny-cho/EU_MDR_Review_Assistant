@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Secrets (API keys, account settings) — never commit
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------------------
+# Python environment & caches (the launcher .bat recreates .venv on each PC)
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ---------------------------------------------------------------------------
+# Generated data — rebuilt on first run from official sources (EU Publications Office, EC)
+# ---------------------------------------------------------------------------
+mdr_chroma_db/
+mdcg_pdfs/
+db_version.json
+db_version.json.tmp
+.build.lock
+*.part
+
+# ---------------------------------------------------------------------------
+# User work data — review records (auto-saved and exported)
+# ---------------------------------------------------------------------------
+results/
+saved_records/
+
+# ---------------------------------------------------------------------------
+# Local tool / OS artifacts
+# ---------------------------------------------------------------------------
+NVIDIA Corporation/
+.claude/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
+~$*

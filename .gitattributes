@@ -1,0 +1,12 @@
+# Normalize text files in the repository
+* text=auto
+
+# Windows batch files must use CRLF, otherwise cmd.exe can mis-handle labels (goto :label)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.svg text
+*.pdf binary
+*.docx binary
+*.png binary

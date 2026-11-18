@@ -1,0 +1,45 @@
+[client]
+# "viewer": Deploy 등 개발자 메뉴는 숨기고, ⋮ 메뉴의 Settings(테마 선택)는 표시
+# ("minimal"은 ⋮ 메뉴 자체를 숨김)
+toolbarMode = "viewer"
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+font = "'Pretendard Variable', Pretendard, 'Malgun Gothic', -apple-system, 'Segoe UI', sans-serif"
+headingFont = "'Pretendard Variable', Pretendard, 'Malgun Gothic', -apple-system, 'Segoe UI', sans-serif"
+codeFont = "'JetBrains Mono', Consolas, 'D2Coding', monospace"
+baseFontSize = 15
+headingFontSizes = ["1.6rem", "1.25rem", "1.05rem", "0.95rem"]
+headingFontWeights = [700, 650, 600, 600]
+baseRadius = "10px"
+buttonRadius = "8px"
+showWidgetBorder = true
+showSidebarBorder = true
+
+[theme.light]
+primaryColor = "#1F4E8C"
+backgroundColor = "#F6F7F9"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1B1F27"
+linkColor = "#1F4E8C"
+borderColor = "#E1E4EA"
+
+[theme.light.sidebar]
+backgroundColor = "#EEF1F5"
+secondaryBackgroundColor = "#FFFFFF"
+borderColor = "#DDE1E8"
+
+[theme.dark]
+primaryColor = "#7FA7E3"
+backgroundColor = "#0F131B"
+secondaryBackgroundColor = "#171C26"
+textColor = "#E4E8EF"
+linkColor = "#9DBDF0"
+borderColor = "#2A3140"
+
+[theme.dark.sidebar]
+backgroundColor = "#131824"
+secondaryBackgroundColor = "#1B2130"
+borderColor = "#262D3B"
