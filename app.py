@@ -71,6 +71,88 @@ GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash"]
 # 최신 상태 자동 점검 주기 (HTTP 조회만 사용, Gemini 토큰 사용 없음)
 UPDATE_CHECK_TTL_SEC = 6 * 3600
 
+# AI 답변 형식 템플릿 (프롬프트의 "답변 형식" 부분만 사용자가 편집 가능).
+# 근거·인용 원칙([작성 원칙])은 build_prompt()에 고정되어 편집 대상이 아니다 (R2–R4 보호).
+DEFAULT_ANSWER_TEMPLATE = """[답변 형식 — 반드시 아래 5개 절을 이 순서와 제목 그대로 사용]
+### 1. 결론 요약
+질문에 대한 답을 2~3문장으로 먼저 제시하고 핵심 근거 번호를 붙이세요.
+### 2. EU MDR 법령 근거
+법적 구속력이 있는 요건을 조항 단위(예: Article 15(1), Annex VIII Rule 19)로 정리하세요.
+### 3. MDCG 가이던스 해석
+실무 해석 기준을 문서 번호와 페이지(예: MDCG 2019-7 p.5)로 정리하세요. MDR 조항과 섞지 마세요.
+### 4. 조건·예외 및 실무 적용
+적용 조건, 예외, 실무에서 확인·준비할 사항을 목록으로 정리하세요.
+### 5. 원문에서 확인되지 않은 사항
+질문 중 제공된 발췌문으로 답할 수 없는 부분을 적으세요. 없으면 "없음"이라고 쓰세요.
+
+[형식 제한]
+- 어떤 절에 해당하는 근거가 발췌문에 없으면 그 절에 "제공된 발췌문에 해당 근거 없음"이라고 쓰세요. 절을 생략하지 마세요.
+- 표(|), 코드 블록, 4단계 이하 제목(####)은 쓰지 마세요. 목록은 2단계까지만 쓰세요.
+- 강조는 **굵게**만 사용하세요. 인사말이나 맺음말은 쓰지 마세요."""
+ANSWER_TEMPLATE_FILE = os.path.join(BASE_DIR, "answer_template.md")  # 사용자 수정본 (없으면 기본값 사용)
+ANSWER_TEMPLATE_MAX_CHARS = 6000
+
+
+def load_answer_template():
+    """(템플릿 문자열, 사용자 수정본 여부). 수정본 파일이 없거나 비어 있으면 기본 템플릿."""
+    try:
+        with open(ANSWER_TEMPLATE_FILE, "r", encoding="utf-8") as f:
+            text = f.read().strip()
+        if text:
+            return text, True
+    except OSError:
+        pass
+    return DEFAULT_ANSWER_TEMPLATE, False
+
+
+def save_answer_template(text):
+    with open(ANSWER_TEMPLATE_FILE, "w", encoding="utf-8") as f:
+        f.write(text.strip() + "\n")
+
+
+def reset_answer_template():
+    try:
+        os.remove(ANSWER_TEMPLATE_FILE)
+    except OSError:
+        pass
+
+
+def _tpl_save_cb():
+    text = st.session_state.get("tpl_editor_text", "").strip()
+    if not text:
+        st.session_state["tpl_editor_msg"] = ("error", "템플릿이 비어 있습니다. 내용을 입력하거나 '초기 설정'을 누르세요.")
+    elif len(text) > ANSWER_TEMPLATE_MAX_CHARS:
+        st.session_state["tpl_editor_msg"] = ("error", f"템플릿이 너무 깁니다 ({len(text):,}자). "
+                                                       f"{ANSWER_TEMPLATE_MAX_CHARS:,}자 이하로 줄여 주세요.")
+    elif text == DEFAULT_ANSWER_TEMPLATE.strip():
+        reset_answer_template()  # 기본값과 같으면 수정본 파일을 두지 않음
+        st.session_state["tpl_editor_msg"] = ("success", "저장했습니다. 기본 템플릿과 같아 기본 템플릿을 사용합니다.")
+    else:
+        save_answer_template(text)
+        st.session_state["tpl_editor_msg"] = ("success", "저장했습니다. 다음 AI 검토부터 이 템플릿이 적용됩니다.")
+
+
+def _tpl_reset_cb():
+    reset_answer_template()
+    st.session_state["tpl_editor_text"] = DEFAULT_ANSWER_TEMPLATE
+    st.session_state["tpl_editor_msg"] = ("success", "초기 템플릿으로 되돌렸습니다.")
+
+
+@st.dialog("답변 템플릿 편집", width="large")
+def answer_template_editor():
+    st.caption("AI 검토 답변의 구성을 정합니다. 절 제목은 ### 로 시작하면 Word 내보내기에서 제목으로 변환됩니다. "
+               "'발췌문 안에서만 답하고 [n]으로 인용한다'는 근거 원칙은 이 템플릿과 별도로 항상 적용됩니다.")
+    st.text_area("템플릿", key="tpl_editor_text", height=380, label_visibility="collapsed")
+    msg = st.session_state.get("tpl_editor_msg")
+    if msg:
+        (st.success if msg[0] == "success" else st.error)(msg[1])
+    c1, c2, c3 = st.columns([1, 1, 1])
+    c1.button("저장", type="primary", icon=":material/save:", use_container_width=True, on_click=_tpl_save_cb)
+    c2.button("초기 설정", icon=":material/restart_alt:", use_container_width=True, on_click=_tpl_reset_cb,
+              help="수정한 템플릿을 지우고 처음 템플릿으로 되돌립니다.")
+    if c3.button("닫기", use_container_width=True):
+        st.rerun()
+
 # 검색 범위 (화면 표시명 → 저장 기록에 남는 이름, ChromaDB 필터)
 SCOPES = {
     "전체": ("전체 통합 검색 (EU MDR + MDCG 가이던스)", None),
@@ -491,6 +573,50 @@ def sanitize_filename(name):
 
 
 # --- 기록용 Markdown(.md) 및 배포용 Word(.docx) 저장 함수 ---
+_MD_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
+_MD_BULLET_RE = re.compile(r"^[-*+]\s+(.*)$")
+_MD_NUMBER_RE = re.compile(r"^\d+[.)]\s+(.*)$")
+_MD_BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+
+
+def _add_md_runs(paragraph, text):
+    """**굵게** 구간은 굵은 글씨로, 나머지는 일반 글씨로 문단에 추가."""
+    pos = 0
+    for m in _MD_BOLD_RE.finditer(text):
+        if m.start() > pos:
+            paragraph.add_run(text[pos:m.start()])
+        paragraph.add_run(m.group(1)).bold = True
+        pos = m.end()
+    if pos < len(text):
+        paragraph.add_run(text[pos:])
+
+
+def markdown_to_docx(doc, text):
+    """AI 답변(마크다운)을 Word 문단으로 변환.
+    지원: 제목(#~###), 1~2단계 글머리표·번호 목록(들여쓰기 2칸 이상이면 2단계), **굵게**.
+    표는 프롬프트에서 금지하지만, 들어오면 셀을 ' | '로 이어 일반 문단으로 남긴다."""
+    for raw in text.split("\n"):
+        if not raw.strip():
+            continue
+        indent = len(raw.expandtabs(4)) - len(raw.expandtabs(4).lstrip(" "))
+        line = raw.strip()
+        level2 = indent >= 2
+        if (m := _MD_HEADING_RE.match(line)):
+            level = min(max(len(m.group(1)), 2), 4)  # '#'·'##' → 2, '###' → 3, 그 이하 → 4
+            doc.add_heading(m.group(2).replace("**", "").strip(), level=level)
+        elif (m := _MD_BULLET_RE.match(line)):
+            _add_md_runs(doc.add_paragraph(style="List Bullet 2" if level2 else "List Bullet"), m.group(1))
+        elif (m := _MD_NUMBER_RE.match(line)):
+            _add_md_runs(doc.add_paragraph(style="List Number 2" if level2 else "List Number"), m.group(1))
+        elif line.startswith("|"):
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if all(re.fullmatch(r":?-{2,}:?", c or "--") for c in cells):
+                continue  # 표 구분선(|---|---|)은 건너뜀
+            _add_md_runs(doc.add_paragraph(), " | ".join(cells))
+        else:
+            _add_md_runs(doc.add_paragraph(), line)
+
+
 def _unique_base(target_dir, base):
     """같은 초에 같은 제목이 겹치면 _2, _3 … 을 붙여 덮어쓰기를 막는다."""
     candidate, n = base, 2
@@ -577,19 +703,7 @@ def save_review_files(title_input, query, answer_text, retrieved_docs, retrieved
     p_q.runs[0].italic = True
 
     doc_word.add_heading("2. 규제 검토 의견 (Regulatory Assessment)", level=2)
-    # 마크다운 기호(**, ### 등)를 깔끔하게 정리하여 Word 문단으로 반영
-    for line in answer_text.split("\n"):
-        clean_line = line.strip()
-        if not clean_line:
-            continue
-        if clean_line.startswith("### "):
-            doc_word.add_heading(clean_line.replace("### ", "").replace("**", ""), level=3)
-        elif clean_line.startswith("## "):
-            doc_word.add_heading(clean_line.replace("## ", "").replace("**", ""), level=2)
-        elif clean_line.startswith(("- ", "* ")):
-            doc_word.add_paragraph(clean_line[2:].replace("**", ""), style="List Bullet")
-        else:
-            doc_word.add_paragraph(clean_line.replace("**", ""))
+    markdown_to_docx(doc_word, answer_text)
 
     doc_word.add_heading("3. 참조된 공식 법령 및 가이던스 원문", level=2)
     for idx, doc_txt, meta in zip(source_numbers, retrieved_docs, retrieved_metas):
@@ -1078,6 +1192,15 @@ with st.sidebar:
     if top_k != saved_top_k:
         write_env_value("TOP_K", str(top_k))
 
+    # AI 답변 형식 템플릿 편집 (수정본은 answer_template.md에 저장되어 재시작 후에도 유지)
+    _tpl_text, _tpl_custom = load_answer_template()
+    st.caption("답변 템플릿: " + ("**사용자 지정**" if _tpl_custom else "기본"))
+    if st.button("답변 템플릿 편집", icon=":material/edit_note:", use_container_width=True,
+                 help="AI 검토 답변의 구성(절 순서·제목·형식 제한)을 수정합니다. 근거·인용 원칙은 고정되어 바뀌지 않습니다."):
+        st.session_state["tpl_editor_text"] = _tpl_text
+        st.session_state.pop("tpl_editor_msg", None)
+        answer_template_editor()
+
     st.divider()
     st.html('<div class="ra-label">저장된 검토 기록</div>')
     # 자동 저장(saved)과 내보낸 기록(exported)을 함께 최신순으로 표시. 내보낸 기록은 [내보냄] 표시
@@ -1172,6 +1295,7 @@ search_scope, where_filter = SCOPES[scope_key or "전체"]
 def build_prompt(query_text, numbered_items):
     """numbered_items: [(화면 번호, 결과)] — 화면의 근거 번호와 같은 번호로 인용하도록 한다."""
     context_text = "\n\n---\n\n".join(f"[{n}] {it['doc']}" for n, it in numbered_items)
+    answer_template, _custom = load_answer_template()
     return f"""당신은 유럽 의료기기 규정(EU MDR 2017/745) 및 MDCG 가이던스 전문 Regulatory Affairs(RA) 컨설턴트입니다.
 아래 제공된 [EU MDR 법령 및 MDCG 가이던스 원문 발췌]만을 근거로 사용자의 질문에 정확하고 실무적으로 답변하세요.
 
@@ -1180,6 +1304,8 @@ def build_prompt(query_text, numbered_items):
 2. 원문에 없는 내용은 추측하지 말고, 제공된 발췌문 범위 내에서 설명하세요. 발췌문으로 답할 수 없는 부분은 "제공된 원문에서 확인되지 않음"이라고 명시하세요.
 3. 실무자가 바로 업무(기술문서 작성, 등급 판정, 번역 범위 산정, 변경관리 등)에 적용할 수 있도록 조건·예외 사항을 구조화해 한국어로 설명하고, 핵심 영문 원문 용어는 괄호 안에 병기하세요.
 4. 근거를 인용할 때는 발췌문 앞의 번호를 [1], [3]처럼 함께 표기하세요.
+
+{answer_template}
 
 [EU MDR 법령 및 MDCG 가이던스 원문 발췌]
 {context_text}

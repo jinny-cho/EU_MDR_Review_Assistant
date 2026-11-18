@@ -5,6 +5,9 @@
 .env.*
 !.env.example
 
+# Per-PC user customization (answer template edited in the web UI; default lives in app.py)
+answer_template.md
+
 # ---------------------------------------------------------------------------
 # Python environment & caches (the launcher .bat recreates .venv on each PC)
 # ---------------------------------------------------------------------------
