@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@600;700;900&display=swap">
 <style>
-/* Layout: a regulatory dossier — a narrow clause rail on the left (§ numbers follow the real story order:
+/* Layout: a regulatory dossier — a narrow clause rail on the left (section numbers follow the real story order:
    problem → need → approach → mechanism → results → limits), reading column on the right. */
 :root {
   --paper: #F4F6F9;          /* cool paper, slight navy bias */
@@ -56,7 +56,13 @@ code, .mono { font-family: var(--font-mono); font-size: .88em; }
 mark { background: linear-gradient(transparent 55%, var(--marker-tint) 55%); color: inherit; padding: 0 .1em; }
 
 /* Hero */
-.hero { padding-block: 56px 40px; border-bottom: 1px solid var(--rule); }
+.hero { padding-block: 40px 40px; border-bottom: 1px solid var(--rule); }
+.toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.theme-switch { display: inline-flex; border: 1px solid var(--rule); background: var(--sheet); }
+.theme-switch button { font: inherit; font-size: 12.5px; padding: 5px 12px; border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.theme-switch button + button { border-left: 1px solid var(--rule); }
+.theme-switch button[aria-pressed="true"] { background: var(--navy); color: var(--sheet); font-weight: 600; }
+.theme-switch button:hover:not([aria-pressed="true"]) { color: var(--ink); }
 .doc-id { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .04em; color: var(--ink-soft);
           display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .doc-id span::before { content: "■ "; color: var(--navy); font-size: 9px; vertical-align: 2px; }
@@ -247,10 +253,17 @@ footer .mono { font-size: 13px; }
 <div class="wrap">
 
   <header class="hero">
-    <div class="doc-id">
-      <span>Regulation (EU) 2017/745</span>
-      <span>CELEX 02017R0745-20261109</span>
-      <span>MDCG guidance 17종</span>
+    <div class="toprow">
+      <div class="doc-id">
+        <span>Regulation (EU) 2017/745</span>
+        <span>CELEX 02017R0745-20261109</span>
+        <span>MDCG guidance 17종</span>
+      </div>
+      <div class="theme-switch" role="group" aria-label="화면 테마">
+        <button type="button" data-mode="system" aria-pressed="true">시스템</button>
+        <button type="button" data-mode="light" aria-pressed="false">라이트</button>
+        <button type="button" data-mode="dark" aria-pressed="false">다크</button>
+      </div>
     </div>
     <h1>EU MDR 규제 검토 어시스턴트</h1>
     <p class="thesis">한국어로 묻고, <strong>EU MDR 원문과 MDCG 가이던스를 근거로</strong> 답합니다.
@@ -264,7 +277,7 @@ footer .mono { font-size: 13px; }
   </header>
 
   <section class="clause" id="problem">
-    <div class="rail"><span class="num">§1</span>문제</div>
+    <div class="rail"><span class="num">1</span>문제</div>
     <div>
       <h2>규제 질문 하나에 답하려면 문서 여러 개를 동시에 펼쳐야 했습니다</h2>
       <p class="lead">의료기기를 유럽에 출시하려면 EU MDR(2017/745)을 지켜야 합니다. 그런데 법령과 그 해석은 서로 다른 곳에, 서로 다른 언어로, 계속 바뀌며 흩어져 있습니다.</p>
@@ -278,7 +291,7 @@ footer .mono { font-size: 13px; }
   </section>
 
   <section class="clause" id="need">
-    <div class="rail"><span class="num">§2</span>요구사항</div>
+    <div class="rail"><span class="num">2</span>요구사항</div>
     <div>
       <h2>필요한 것은 답을 대신 내리는 AI가 아니라, 근거를 빠르게 찾아주는 조수였습니다</h2>
       <p class="lead">최종 판단은 사람이 합니다. 도구는 그 판단에 필요한 원문을 정확히 찾아 나란히 보여주고, 그 범위 안에서만 해석을 돕도록 정했습니다.</p>
@@ -294,7 +307,7 @@ footer .mono { font-size: 13px; }
   </section>
 
   <section class="clause" id="approach">
-    <div class="rail"><span class="num">§3</span>접근</div>
+    <div class="rail"><span class="num">3</span>접근</div>
     <div>
       <h2>공식 원문을 로컬에 색인하고, AI는 찾아온 근거만 읽게 했습니다</h2>
       <p class="lead">이런 방식을 RAG(Retrieval-Augmented Generation, 검색 증강 생성)라고 부릅니다. AI가 기억에 의존해 답하는 대신, 먼저 검색한 원문 발췌를 읽고 그 안에서만 답하게 만드는 구조입니다. 그 위에 아래의 설계 결정을 더했습니다.</p>
@@ -331,7 +344,7 @@ footer .mono { font-size: 13px; }
   </section>
 
   <section class="clause" id="mechanism">
-    <div class="rail"><span class="num">§4</span>동작 원리</div>
+    <div class="rail"><span class="num">4</span>동작 원리</div>
     <div>
       <h2>두 개의 흐름이 있습니다: 문서를 준비하는 흐름과 질문에 답하는 흐름</h2>
       <div class="pipeline">
@@ -466,7 +479,7 @@ nanomaterial are classified as:
   </section>
 
   <section class="clause" id="results">
-    <div class="rail"><span class="num">§5</span>결과</div>
+    <div class="rail"><span class="num">5</span>결과</div>
     <div>
       <h2>측정으로 고른 설계, 측정으로 확인한 결과</h2>
       <p class="lead">검색 모델은 감으로 고르지 않았습니다. 같은 30개 질문으로 후보를 비교하고, 실제 서비스 경로에서 다시 측정했습니다.</p>
@@ -491,7 +504,7 @@ nanomaterial are classified as:
   </section>
 
   <section class="clause" id="limits">
-    <div class="rail"><span class="num">§6</span>한계</div>
+    <div class="rail"><span class="num">6</span>한계</div>
     <div>
       <h2>이 도구가 하지 않는 것</h2>
       <ul class="limits">
@@ -510,6 +523,26 @@ nanomaterial are classified as:
 </div>
 
 <script>
+/* 화면 테마: 시스템(기본) / 라이트 / 다크 — 선택은 이 브라우저에만 저장 */
+(function () {
+  var KEY = "eu-mdr-overview-theme", root = document.documentElement;
+  var btns = Array.prototype.slice.call(document.querySelectorAll(".theme-switch button"));
+  function apply(mode) {
+    if (mode === "light" || mode === "dark") root.setAttribute("data-theme", mode);
+    else root.removeAttribute("data-theme");
+    btns.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.mode === mode)); });
+  }
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  apply(saved === "light" || saved === "dark" ? saved : "system");
+  btns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      apply(b.dataset.mode);
+      try { localStorage.setItem(KEY, b.dataset.mode); } catch (e) {}
+    });
+  });
+})();
+
 (function () {
   var STEPS = [
     { t: "질문이 들어옵니다", d: "사용자가 한국어로 질문합니다. 이 예시에는 조항 번호가 없습니다." },
